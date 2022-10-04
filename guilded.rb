@@ -3,24 +3,32 @@ require 'eventmachine'
 require 'json'
 require 'httparty'
 
+# Master class of all Guilded objects
+# Doesn't do anything yet, mostly just here to keep things organized, may do more later.
 class GuildedObject
 end
 
+#@todo Channel, member, server objects
+
+# Context object, used for events
 class Context < GuildedObject
+
   def initialize(client, data, event_type)
-    puts "DEBUG: Creating #{event_type} context out of #{data}"
+    if client.debug then puts "DEBUG: Creating #{event_type} context out of #{data}" end
     @event_type = event_type
     @serverId = data["serverId"]
     @client = client
     @data = data
   end
 
+  # If this a message-based event context, create a message object out of the data
   def create_message(data)
     @message = Message.new(data)
     @message.client = @client
     @message
   end
 
+  #@todo reply shortcut for message.reply
   attr_accessor :message, :serverId, :event_type, :client, :data
 end
 
@@ -38,15 +46,18 @@ class Message < GuildedObject
     @client = nil
   end
 
+  #@todo reply, delete, edit functions
+
   attr_accessor :data, :id, :serverId, :channelId, :content, :createdAt, :createdBy, :isPrivate, :client
 end
 
+# Storage of all methods that interact with the HTTP API
 module API
   API_BASE = "https://www.guilded.gg/api/v1/"
 
   def send_message(channelId, content, replyTo = nil, private = false)
     endpoint = "#{API_BASE}channels/#{channelId}/messages"
-    puts "Sending #{content} to #{endpoint}"
+    
     headers = {
       "Authorization" => "Bearer #{@token}",
       "Accept" => "application/json",
@@ -55,15 +66,12 @@ module API
 
     body = {"content" => content}
 
-    if replyTo != nil
-      body["replyMessageIds"] = replyTo
-    end
+    body["replyMessageIds"] = replyTo if replyTo != nil
 
     body["isPrivate"] = true if private
-    #, "replyMessageIds" => replyTo
 
     response = HTTParty.post(endpoint, body: JSON.generate(body), headers: headers)
-    p response
+    p response if @debug
   end
 end
 
@@ -78,7 +86,7 @@ class Guilded
     @debug = false
 
     @events = {
-      :ChatMessageCreated => [], #method(:default_on_message)
+      :ChatMessageCreated => [],
       :ClientStartup => [method(:default_startup)],
       :ClientStarted => [method(:default_started)]
     }
@@ -110,7 +118,6 @@ class Guilded
       context = Context.new(self, json["d"] || {}, event_type)
       
       context.create_message(context.data["message"]) if context.data["message"] != nil
-      #context.serverId = context.data["serverId"] 
       @events[event_type].each { |x| x.call(context) }
     else
       puts "DEBUG: No events hooked for #{event_type}"
