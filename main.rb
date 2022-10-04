@@ -32,5 +32,20 @@ client.add_event(:ChatMessageCreated) { |ctx|
     end
 }
 
+# Adding commands is a built-in feature.
+client.add_command(:echoa) { |ctx, line| 
+    #ctx.send sends a plain message to the context's channel
+    ctx.send(line)
+}
+
+client.add_command(:echob) { |ctx, line| 
+    #ctx.reply sends a message as a reply to the sender message
+    ctx.reply(line)
+
+    #this can be accessed through the message object too;
+    # ctx.message.reply(line)
+}
+
+
 # Connecting to Guilded
 client.connect(config["token"])
